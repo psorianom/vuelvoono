@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "nombre": "Prueba",
+    "ubicacion": "Calle 123, CDMX",
+    "recepcion": 7,
+    "atencion": 7,
+    "lugar": 7,
+    "producto": 7,
+    "notas": null,
+    "id": "e205bf21-f3d0-44e6-8dfb-16211069fdda",
+    "created_at": "2026-05-02T03:29:43.047Z"
+  }
+]
