@@ -1,19 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { getLugares, type Lugar } from '@/lib/github'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import SignOutButton from './SignOutButton'
-
-type Lugar = {
-  id: string
-  created_at: string
-  nombre: string
-  ubicacion: string
-  recepcion: number
-  atencion: number
-  lugar: number
-  producto: number
-  notas: string | null
-}
 
 function scoreColor(v: number) {
   if (v >= 8) return 'bg-emerald-500'
@@ -36,9 +26,7 @@ function avg(l: Lugar) {
 function LugarCard({ lugar }: { lugar: Lugar }) {
   const average = avg(lugar)
   const date = new Date(lugar.created_at).toLocaleDateString('es', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+    day: 'numeric', month: 'short', year: 'numeric',
   })
   const categorias = [
     { label: 'Recepción', value: lugar.recepcion },
@@ -85,15 +73,10 @@ function LugarCard({ lugar }: { lugar: Lugar }) {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const session = await getServerSession(authOptions)
+  if (!session) redirect('/login')
 
-  if (!user) redirect('/login')
-
-  const { data: lugares } = await supabase
-    .from('lugares')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const lugares = await getLugares()
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -113,7 +96,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {!lugares || lugares.length === 0 ? (
+      {lugares.length === 0 ? (
         <div className="text-center py-20">
           <p className="text-stone-400 text-lg">Todavía no has anotado ningún lugar.</p>
           <Link
@@ -125,9 +108,7 @@ export default async function HomePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {lugares.map(lugar => (
-            <LugarCard key={lugar.id} lugar={lugar} />
-          ))}
+          {lugares.map(l => <LugarCard key={l.id} lugar={l} />)}
         </div>
       )}
     </div>

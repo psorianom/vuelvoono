@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 function RatingSlider({
   label,
@@ -15,13 +14,10 @@ function RatingSlider({
   onChange: (v: number) => void
 }) {
   const color =
-    value >= 8
-      ? 'text-emerald-600'
-      : value >= 6
-      ? 'text-amber-500'
-      : value >= 4
-      ? 'text-orange-500'
-      : 'text-red-500'
+    value >= 8 ? 'text-emerald-600'
+    : value >= 6 ? 'text-amber-500'
+    : value >= 4 ? 'text-orange-500'
+    : 'text-red-500'
 
   return (
     <div className="flex flex-col gap-1">
@@ -72,19 +68,22 @@ export default function NuevoPage() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient()
-    const { error: err } = await supabase.from('lugares').insert([{
-      nombre: form.nombre.trim(),
-      ubicacion: form.ubicacion.trim(),
-      recepcion: form.recepcion,
-      atencion: form.atencion,
-      lugar: form.lugar,
-      producto: form.producto,
-      notas: form.notas.trim() || null,
-    }])
+    const res = await fetch('/api/lugares', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre: form.nombre.trim(),
+        ubicacion: form.ubicacion.trim(),
+        recepcion: form.recepcion,
+        atencion: form.atencion,
+        lugar: form.lugar,
+        producto: form.producto,
+        notas: form.notas.trim() || null,
+      }),
+    })
 
-    if (err) {
-      setError(err.message)
+    if (!res.ok) {
+      setError('No se pudo guardar. Intenta de nuevo.')
       setLoading(false)
     } else {
       router.push('/')
