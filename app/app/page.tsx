@@ -1,9 +1,8 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { getLugares, type Lugar } from '@/lib/github'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import SignOutButton from './SignOutButton'
+import { getLugares, type Lugar } from '@/lib/github'
 
 function scoreColor(v: number) {
   if (v >= 8) return 'bg-emerald-500'
@@ -43,13 +42,10 @@ function LugarCard({ lugar }: { lugar: Lugar }) {
           <p className="text-stone-400 text-sm mt-0.5">{lugar.ubicacion}</p>
         </div>
         <div className="text-right shrink-0">
-          <span className={`text-3xl font-black ${avgColor(average)}`}>
-            {average.toFixed(1)}
-          </span>
+          <span className={`text-3xl font-black ${avgColor(average)}`}>{average.toFixed(1)}</span>
           <p className="text-xs text-stone-300">/10</p>
         </div>
       </div>
-
       <div className="grid grid-cols-2 gap-2">
         {categorias.map(c => (
           <div key={c.label} className="flex items-center justify-between bg-stone-50 rounded-lg px-3 py-2">
@@ -60,23 +56,112 @@ function LugarCard({ lugar }: { lugar: Lugar }) {
           </div>
         ))}
       </div>
-
       {lugar.notas && (
         <p className="text-sm text-stone-400 italic border-t border-stone-50 pt-3">
           &ldquo;{lugar.notas}&rdquo;
         </p>
       )}
-
       <p className="text-xs text-stone-300 text-right">{date}</p>
     </div>
   )
 }
 
-export default async function HomePage() {
-  const session = await getServerSession(authOptions)
-  if (!session) redirect('/login')
+function TokenSetup({ onToken }: { onToken: (t: string) => void }) {
+  const [input, setInput] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const lugares = await getLugares()
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await getLugares(input.trim())
+      localStorage.setItem('gh_token', input.trim())
+      onToken(input.trim())
+    } catch {
+      setError('Token inválido o sin permisos. Revisá que tenga acceso al repo.')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-stone-900 mb-2">vuelvoono</h1>
+          <p className="text-stone-400 text-sm">
+            Pegá tu GitHub Personal Access Token para acceder
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="password"
+            placeholder="ghp_xxxxxxxxxxxx"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            required
+            className="w-full border border-stone-200 rounded-xl px-4 py-3 text-stone-900 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900 font-mono text-sm"
+          />
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-stone-900 text-white rounded-xl px-4 py-3 font-medium hover:bg-stone-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Verificando...' : 'Entrar'}
+          </button>
+        </form>
+        <p className="text-xs text-stone-300 text-center mt-6">
+          github.com → Settings → Developer settings → Personal access tokens → Fine-grained → New token → solo repo <strong>vuelvoono</strong> con permisos de Contents (read & write)
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default function HomePage() {
+  const [token, setToken] = useState<string | null>(null)
+  const [lugares, setLugares] = useState<Lugar[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('gh_token')
+    if (saved) {
+      setToken(saved)
+      getLugares(saved)
+        .then(setLugares)
+        .catch(() => {
+          localStorage.removeItem('gh_token')
+          setToken(null)
+        })
+        .finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+  }, [])
+
+  function handleToken(t: string) {
+    setToken(t)
+    setLoading(true)
+    getLugares(t).then(setLugares).finally(() => setLoading(false))
+  }
+
+  function signOut() {
+    localStorage.removeItem('gh_token')
+    setToken(null)
+    setLugares([])
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-stone-400">Cargando...</p>
+      </div>
+    )
+  }
+
+  if (!token) return <TokenSetup onToken={handleToken} />
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -86,7 +171,12 @@ export default async function HomePage() {
           <p className="text-sm text-stone-400">mis lugares</p>
         </div>
         <div className="flex items-center gap-3">
-          <SignOutButton />
+          <button
+            onClick={signOut}
+            className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
+          >
+            Salir
+          </button>
           <Link
             href="/nuevo"
             className="bg-stone-900 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl hover:bg-stone-700 transition-colors"

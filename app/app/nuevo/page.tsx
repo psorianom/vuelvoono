@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { addLugar } from '@/lib/github'
 
 function RatingSlider({
   label,
@@ -26,16 +27,12 @@ function RatingSlider({
         <span className={`text-lg font-black ${color}`}>{value}</span>
       </div>
       <input
-        type="range"
-        min={1}
-        max={10}
-        value={value}
+        type="range" min={1} max={10} value={value}
         onChange={e => onChange(Number(e.target.value))}
         className="w-full accent-stone-900"
       />
       <div className="flex justify-between text-xs text-stone-300">
-        <span>1</span>
-        <span>10</span>
+        <span>1</span><span>10</span>
       </div>
     </div>
   )
@@ -43,17 +40,20 @@ function RatingSlider({
 
 export default function NuevoPage() {
   const router = useRouter()
+  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    nombre: '',
-    ubicacion: '',
-    recepcion: 7,
-    atencion: 7,
-    lugar: 7,
-    producto: 7,
+    nombre: '', ubicacion: '',
+    recepcion: 7, atencion: 7, lugar: 7, producto: 7,
     notas: '',
   })
+
+  useEffect(() => {
+    const t = localStorage.getItem('gh_token')
+    if (!t) router.replace('/')
+    else setToken(t)
+  }, [router])
 
   function setRating(field: 'recepcion' | 'atencion' | 'lugar' | 'producto') {
     return (v: number) => setForm(f => ({ ...f, [field]: v }))
@@ -65,13 +65,11 @@ export default function NuevoPage() {
       setError('El nombre y la ubicación son obligatorios.')
       return
     }
+    if (!token) return
     setLoading(true)
     setError('')
-
-    const res = await fetch('/api/lugares', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await addLugar(token, {
         nombre: form.nombre.trim(),
         ubicacion: form.ubicacion.trim(),
         recepcion: form.recepcion,
@@ -79,17 +77,16 @@ export default function NuevoPage() {
         lugar: form.lugar,
         producto: form.producto,
         notas: form.notas.trim() || null,
-      }),
-    })
-
-    if (!res.ok) {
-      setError('No se pudo guardar. Intenta de nuevo.')
-      setLoading(false)
-    } else {
+      })
       router.push('/')
       router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar.')
+      setLoading(false)
     }
   }
+
+  if (!token) return null
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
@@ -105,8 +102,7 @@ export default function NuevoPage() {
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Nombre</label>
             <input
-              type="text"
-              placeholder="El Bulli"
+              type="text" placeholder="El Bulli"
               value={form.nombre}
               onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
               className="w-full border border-stone-200 rounded-xl px-4 py-3 text-stone-900 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
@@ -115,8 +111,7 @@ export default function NuevoPage() {
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1">Ubicación</label>
             <input
-              type="text"
-              placeholder="Barcelona, España"
+              type="text" placeholder="Barcelona, España"
               value={form.ubicacion}
               onChange={e => setForm(f => ({ ...f, ubicacion: e.target.value }))}
               className="w-full border border-stone-200 rounded-xl px-4 py-3 text-stone-900 placeholder-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
@@ -147,8 +142,7 @@ export default function NuevoPage() {
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         <button
-          type="submit"
-          disabled={loading}
+          type="submit" disabled={loading}
           className="bg-stone-900 text-white rounded-xl px-4 py-3 font-medium hover:bg-stone-700 transition-colors disabled:opacity-50"
         >
           {loading ? 'Guardando...' : 'Guardar'}

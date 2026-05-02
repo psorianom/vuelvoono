@@ -1,5 +1,4 @@
-const REPO = process.env.GITHUB_REPO!
-const TOKEN = process.env.GITHUB_TOKEN!
+const REPO = 'psorianom/vuelvoono'
 const FILE = 'db/lugares.json'
 const API = `https://api.github.com/repos/${REPO}/contents/${FILE}`
 
@@ -15,35 +14,49 @@ export type Lugar = {
   notas: string | null
 }
 
-const headers = {
-  Authorization: `Bearer ${TOKEN}`,
-  Accept: 'application/vnd.github.v3+json',
-  'Content-Type': 'application/json',
+function headers(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+  }
 }
 
-async function readFile(): Promise<{ lugares: Lugar[]; sha: string }> {
-  const res = await fetch(API, { headers, cache: 'no-store' })
-  if (!res.ok) throw new Error(`GitHub API error: ${res.status}`)
+function encodeJson(obj: unknown): string {
+  const json = JSON.stringify(obj, null, 2)
+  const bytes = new TextEncoder().encode(json)
+  return btoa(Array.from(bytes).map(b => String.fromCharCode(b)).join(''))
+}
+
+function decodeJson(b64: string): unknown {
+  const binary = atob(b64.replace(/\s/g, ''))
+  const bytes = new Uint8Array(binary.split('').map(c => c.charCodeAt(0)))
+  return JSON.parse(new TextDecoder().decode(bytes))
+}
+
+async function readFile(token: string): Promise<{ lugares: Lugar[]; sha: string }> {
+  const res = await fetch(API, { headers: headers(token) })
+  if (res.status === 404) return { lugares: [], sha: '' }
+  if (!res.ok) throw new Error(`Error ${res.status}: token inválido o sin permisos`)
   const data = await res.json()
-  const content = Buffer.from(data.content, 'base64').toString('utf-8')
-  return { lugares: JSON.parse(content), sha: data.sha }
+  return { lugares: decodeJson(data.content) as Lugar[], sha: data.sha }
 }
 
-export async function getLugares(): Promise<Lugar[]> {
-  const { lugares } = await readFile()
+export async function getLugares(token: string): Promise<Lugar[]> {
+  const { lugares } = await readFile(token)
   return lugares.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
 }
 
-export async function addLugar(input: Omit<Lugar, 'id' | 'created_at'>): Promise<void> {
-  const { lugares, sha } = await readFile()
+export async function addLugar(token: string, input: Omit<Lugar, 'id' | 'created_at'>): Promise<void> {
+  const { lugares, sha } = await readFile(token)
   const nueva: Lugar = { ...input, id: crypto.randomUUID(), created_at: new Date().toISOString() }
-  const content = Buffer.from(JSON.stringify([...lugares, nueva], null, 2)).toString('base64')
-  const res = await fetch(API, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify({ message: `add: ${nueva.nombre}`, content, sha }),
-  })
-  if (!res.ok) throw new Error(`GitHub write error: ${res.status}`)
+  const body: Record<string, string> = {
+    message: `add: ${nueva.nombre}`,
+    content: encodeJson([...lugares, nueva]),
+  }
+  if (sha) body.sha = sha
+  const res = await fetch(API, { method: 'PUT', headers: headers(token), body: JSON.stringify(body) })
+  if (!res.ok) throw new Error(`Error al guardar: ${res.status}`)
 }
