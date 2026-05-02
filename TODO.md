@@ -10,36 +10,49 @@ Web app para anotar y calificar lugares visitados (restaurantes, bares, etc.) se
 - **Backend:** Next.js API Routes (same repo)
 - **Base de datos:** PostgreSQL en Supabase (gratis, con auth integrado)
 - **Auth:** Supabase Auth (magic link por email — solo tú puedes entrar)
-- **Deploy:** Vercel (gratis, HTTPS automático)
+- **Dev environment:** GitHub Codespaces (Node ya instalado, gratis 60h/mes)
+- **Deploy:** Vercel (gratis, HTTPS automático, preview en cada push)
 
 ---
 
 ## Costo total: $0/mes
 
-Todo el stack tiene tier gratuito más que suficiente para uso personal:
-
 | Servicio | Plan gratuito incluye | ¿Te alcanza? |
 |---|---|---|
-| **Vercel** | Proyectos ilimitados, 100GB bandwidth/mes | Sí, con creces |
-| **Supabase** | 500MB base de datos, 50MB storage, 50.000 usuarios auth | Sí, con creces |
-| **GitHub** | Repos privados ilimitados | Sí |
+| **GitHub** | Repos privados ilimitados, 60h/mes Codespaces | Sí |
+| **Vercel** | Proyectos ilimitados, 100GB bandwidth/mes, preview deploys | Sí |
+| **Supabase** | 500MB base de datos, 50.000 usuarios auth | Sí |
 
-**No necesitas tarjeta de crédito para ninguno de los tres.**
-Si algún día superaras los límites (muy poco probable con uso personal), Supabase avisa antes de cobrar y puedes pausar el proyecto.
+**No necesitas tarjeta de crédito para ninguno.**
 
 ---
 
-## Fase 1 — Setup del proyecto
+## Flujo de trabajo
 
-- [ ] Instalar Node.js (v20+) si no lo tienes
-- [ ] Crear proyecto: `npx create-next-app@latest vuelvoono --typescript --tailwind --app`
-- [ ] Entrar al directorio: `cd vuelvoono`
-- [ ] Crear repositorio en GitHub y hacer el primer push
-- [ ] Crear cuenta en [supabase.com](https://supabase.com) y crear un nuevo proyecto
+```
+Codespace (browser) → push a GitHub → Vercel despliega en ~30s → URL live
+```
+
+---
+
+## Fase 1 — Setup inicial
+
+- [x] Crear repositorio privado en GitHub (`psorianom/vuelvoono`)
+- [ ] Abrir Codespace: github.com/psorianom/vuelvoono → Code → Codespaces → New codespace
+- [ ] Dentro del Codespace, crear el proyecto Next.js:
+  ```bash
+  npx create-next-app@latest app --typescript --tailwind --app --no-git
+  ```
+- [ ] Crear cuenta en [supabase.com](https://supabase.com) y crear un nuevo proyecto llamado `vuelvoono`
 - [ ] Anotar las variables: `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] Instalar cliente de Supabase: `npm install @supabase/supabase-js @supabase/ssr`
-- [ ] Crear archivo `.env.local` con las variables de Supabase
-- [ ] Agregar `.env.local` al `.gitignore`
+- [ ] Dentro del Codespace, instalar cliente de Supabase:
+  ```bash
+  cd app && npm install @supabase/supabase-js @supabase/ssr
+  ```
+- [ ] Crear `app/.env.local` con las variables de Supabase
+- [ ] Confirmar que `.env.local` está en `.gitignore`
+- [ ] Conectar repo a [vercel.com](https://vercel.com) → Add New Project → importar `vuelvoono`
+- [ ] Agregar las variables de entorno en Vercel (mismas del `.env.local`)
 
 ---
 
@@ -62,98 +75,70 @@ create table lugares (
 ```
 
 - [ ] Activar Row Level Security (RLS) en la tabla `lugares`
-- [ ] Crear política RLS que solo permite acceso a usuarios autenticados:
+- [ ] Crear política RLS:
 
 ```sql
--- Solo el dueño autenticado puede ver y modificar
 create policy "Solo usuario autenticado"
-on lugares
-for all
-to authenticated
-using (true)
-with check (true);
+on lugares for all to authenticated
+using (true) with check (true);
 ```
 
 ---
 
 ## Fase 3 — Autenticación
 
-- [ ] Configurar Supabase Auth: en el dashboard habilitar "Email (magic link)"
-- [ ] Agregar tu email como único usuario permitido (o simplemente usarlo como login)
-- [ ] Crear `lib/supabase/client.ts` — cliente para el browser
-- [ ] Crear `lib/supabase/server.ts` — cliente para server components
-- [ ] Crear `middleware.ts` en la raíz — redirige a login si no hay sesión activa
-- [ ] Crear página `/login` con formulario de magic link (input de email + botón)
+- [ ] En Supabase → Authentication → Providers: habilitar "Email" con magic link
+- [ ] Crear `app/lib/supabase/client.ts` — cliente para el browser
+- [ ] Crear `app/lib/supabase/server.ts` — cliente para server components
+- [ ] Crear `app/middleware.ts` — redirige a `/login` si no hay sesión
+- [ ] Crear página `/login` con input de email + botón "Enviar link"
 - [ ] Crear ruta `/auth/callback` para que Supabase complete el login
-- [ ] Probar el flujo completo: pedir magic link → recibirlo → quedar logueado
+- [ ] Push → verificar en Vercel que el login funciona con magic link
 
 ---
 
 ## Fase 4 — Página principal (lista de lugares)
 
-- [ ] Crear página `/` (app/page.tsx) protegida por middleware
-- [ ] Hacer query a Supabase para traer todos los lugares ordenados por fecha
-- [ ] Diseñar tarjeta (card) para cada lugar mostrando:
-  - Nombre y ubicación
-  - Las cuatro notas (recepcion, atencion, lugar, producto)
-  - Promedio general calculado
-  - Fecha de visita
-- [ ] Mostrar las tarjetas en una grilla (grid)
-- [ ] Agregar botón "+" o "Agregar lugar" que lleva a `/nuevo`
-- [ ] Agregar botón de cerrar sesión
+- [ ] Crear página `/` protegida por middleware
+- [ ] Query a Supabase para traer todos los lugares ordenados por fecha desc
+- [ ] Card por lugar mostrando: nombre, ubicación, 4 notas, promedio, fecha
+- [ ] Grilla responsive de cards
+- [ ] Botón "+" que lleva a `/nuevo`
+- [ ] Botón de cerrar sesión
+- [ ] Push → verificar preview en Vercel
 
 ---
 
 ## Fase 5 — Página de agregar lugar
 
-- [ ] Crear página `/nuevo` (app/nuevo/page.tsx)
-- [ ] Crear formulario con los campos:
-  - Nombre del lugar (text input)
-  - Ubicación (text input)
-  - Recepción (slider o input numérico 1–10)
-  - Atención / Servicio (slider o input numérico 1–10)
-  - Lugar (slider o input numérico 1–10)
-  - Producto (slider o input numérico 1–10)
-  - Notas adicionales (textarea, opcional)
-- [ ] Validar que todos los campos requeridos estén completos antes de enviar
-- [ ] Al guardar, hacer INSERT en Supabase via API Route o Server Action
-- [ ] Redirigir a `/` después de guardar exitosamente
-- [ ] Mostrar mensaje de error si algo falla
+- [ ] Crear página `/nuevo`
+- [ ] Formulario con: nombre, ubicación, recepción (1–10), atención (1–10), lugar (1–10), producto (1–10), notas (opcional)
+- [ ] Validación antes de enviar
+- [ ] INSERT en Supabase via Server Action
+- [ ] Redirigir a `/` al guardar
+- [ ] Push → probar flujo completo en Vercel
 
 ---
 
 ## Fase 6 — Pulir la interfaz
 
-- [ ] Elegir paleta de colores y tipografía con Tailwind
-- [ ] Hacer la app responsive (que se vea bien en móvil)
-- [ ] Agregar estados de carga (loading spinners) mientras se consulta la BD
-- [ ] Mostrar mensaje cuando no hay lugares todavía ("Aún no has anotado ningún lugar")
-- [ ] Agregar visualización clara de las cuatro notas (ej: barras de color o números grandes)
-- [ ] Considerar página de detalle `/lugar/[id]` para ver un lugar completo (opcional)
+- [ ] Paleta de colores y tipografía con Tailwind
+- [ ] Responsive (mobile-first)
+- [ ] Loading states mientras carga la BD
+- [ ] Estado vacío ("Aún no has anotado ningún lugar")
+- [ ] Visualización clara de las 4 notas (barras o números grandes)
 
 ---
 
-## Fase 7 — Deploy
+## Fase 7 — Configurar dominio y seguridad final
 
-- [ ] Crear cuenta en [vercel.com](https://vercel.com) y conectar el repo de GitHub
-- [ ] Agregar las variables de entorno en Vercel (las mismas del `.env.local`)
-- [ ] Agregar la URL de producción de Vercel en Supabase → Authentication → URL Configuration:
-  - Site URL: `https://tu-app.vercel.app`
-  - Redirect URLs: `https://tu-app.vercel.app/auth/callback`
-- [ ] Hacer deploy y verificar que el login funciona en producción
-- [ ] Verificar que los datos se guardan y muestran correctamente
+- [ ] En Supabase → Authentication → URL Configuration:
+  - Site URL: `https://vuelvoono.vercel.app`
+  - Redirect URLs: `https://vuelvoono.vercel.app/auth/callback`
+- [ ] Confirmar que RLS está activo
+- [ ] Confirmar que middleware bloquea todas las rutas excepto `/login` y `/auth/callback`
+- [ ] Confirmar que `.env.local` no está en el repo
 - [ ] Probar desde el móvil
-
----
-
-## Fase 8 — Seguridad final (checklist)
-
-- [ ] Confirmar que RLS está activo en Supabase (nadie sin login puede ver tus datos)
-- [ ] Confirmar que el middleware bloquea todas las rutas excepto `/login` y `/auth/callback`
-- [ ] Confirmar que `.env.local` no está en el repo de GitHub
-- [ ] Confirmar que Vercel sirve la app con HTTPS (automático)
-- [ ] No compartir la URL con nadie o protegerla con una contraseña fuerte en el magic link
-- [ ] Revisar que no hay datos sensibles en el código fuente público
 
 ---
 
@@ -163,5 +148,5 @@ with check (true);
 - [ ] Eliminar un lugar
 - [ ] Filtrar/ordenar por categoría o nota
 - [ ] Exportar a CSV
-- [ ] Mapa con los lugares usando Google Maps o Mapbox
 - [ ] Foto del lugar (upload a Supabase Storage)
+- [ ] Mapa con los lugares
